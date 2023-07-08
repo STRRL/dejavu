@@ -1,0 +1,20 @@
+[package]
+name = "dejavu"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+name = "ocr"
+path = "src/poc/ocr/main.rs"
+
+[[bin]]
+name = "screenshot"
+path = "src/poc/screenshot/main.rs"
+
+
+[dependencies]
+screenshots = "0.6.0"
+rusty-tesseract = "1.1.5"
+image = "0.24.6"
