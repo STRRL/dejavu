@@ -6,8 +6,8 @@ Open Source alternative to rewind.ai, capture and indexing your screen content, 
 
 This project is in proof of concept stage.
 
-TODO:
+POC TODO:
 
-- [ ] Capture screenshots
-- [ ] Use OCR to index text
+- [x] Capture screenshots
+- [x] Use OCR to index text
 - [ ] Text Fuzzy Search API
