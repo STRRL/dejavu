@@ -10,4 +10,4 @@ POC TODO:
 
 - [x] Capture screenshots
 - [x] Use OCR to index text
-- [ ] Text Fuzzy Search API
+- [ ] Full Text Search API
