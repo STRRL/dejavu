@@ -1,9 +1,11 @@
 use screenshots::Screen;
 use std::{fs, time::Instant};
+
 fn main() {
     let start = Instant::now();
     let screens = Screen::all().unwrap();
 
+    
     for screen in screens {
         println!("capturer {screen:?}");
         let image = screen.capture().unwrap();
