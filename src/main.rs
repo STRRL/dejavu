@@ -1,38 +1,68 @@
-use std::{fs, io::Cursor};
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::{fs, io::Cursor, time::Duration};
 
 use crate::screenshot::Capturer;
 use anyhow::Ok;
-use ocr::CharacterRecognizer;
 mod analysis;
+mod image_archive;
 mod markup;
 mod ocr;
 mod repository;
 mod screenshot;
-mod image_archive;
-
+use tokio::signal;
+use tokio::sync::{mpsc, Mutex};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let capturer = screenshot::DefaultCapturer::new();
-    let captures = capturer.capture().await?;
+    let tesseract_ocr = ocr::TesseractOCR::new();
+    let repo = repository::InMemoryRepository::new();
+    let archiver = image_archive::InMemoryImageArchiver::new();
+    let analysis =
+        analysis::Analysis::new(Box::new(tesseract_ocr), Box::new(repo), Box::new(archiver));
 
-    println!("Captured {} images", captures.len());
-    let ocr = ocr::TesseractOCR::new();
-    let decorator: markup::ImageMarkupDecorator = markup::ImageMarkupDecorator::new();
+    let analysis: Arc<Mutex<analysis::Analysis>> = Arc::new(Mutex::new(analysis));
+    let analysis_upload_task = analysis.clone();
+    let analysis_search_task = analysis.clone();
 
-    for (index, image) in captures.into_iter().enumerate() {
-        let ocr_result = ocr.recognize(image.clone()).await?;
-        let markups: Vec<ocr::MarkupBox> = ocr_result
-            .iter()
-            .filter(|it| it.level == 5)
-            .map(|it| it.markup)
-            .collect();
-        println!("markups: {}", markups.len());
-        let marked = decorator.markup_recognition(&image, &markups)?;
-        let mut buffer: Vec<u8> = Vec::new();
-        marked.write_to(&mut Cursor::new(&mut buffer), image::ImageOutputFormat::Png)?;
-        fs::write(format!("target/out-{}.png", index), buffer).unwrap();
-    }
+    let capture_task = tokio::task::spawn(async move {
+        let analysis = analysis_upload_task.clone();
+        let capturer = screenshot::DefaultCapturer::new();
+        let mut capture_interval = tokio::time::interval(Duration::from_secs(2));
+        loop {
+            tokio::select! {
+                _=signal::ctrl_c() => {
+                    println!("Ctrl-C received, exiting...");
+                    break;
+                },
+                _= capture_interval.tick()=>{
+                    let captures = capturer.capture().await.unwrap();
+                    let mut analysis = analysis.lock().await;
+                    for item in captures{
+                        analysis.record_screenshot(&item).await.unwrap();
+                    }
+                },
+            }
+        }
+    });
+    let search_task = tokio::task::spawn(async move {
+        let analysis = analysis_search_task.clone();
+        let mut search_interval = tokio::time::interval(Duration::from_secs(2));
+        loop {
+            tokio::select! {
+                _=signal::ctrl_c() => {
+                    println!("Ctrl-C received, exiting...");
+                    break;
+                },
+                _= search_interval.tick()=>{
+                    let analysis = analysis.lock().await;
+                    let result = analysis.search("hello").await.unwrap();
+                    println!("search result: {:?}", result);
+                },
+            }
+        }
+    });
 
+    capture_task.await.unwrap();
     Ok(())
 }

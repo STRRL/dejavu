@@ -71,8 +71,8 @@ impl TryFrom<&crate::ocr::RecognizeItem> for EntityText {
 pub trait Repository {
     async fn save_image(&self, entity: &EntityImage) -> anyhow::Result<EntityImage>;
     async fn get_image_by_id(&self, id: u32) -> anyhow::Result<EntityImage>;
-    async fn save_text(&self, entity: &EntityText) -> anyhow::Result<EntityText>;
-    async fn save_texts(&self, entities: &Vec<EntityText>) -> anyhow::Result<Vec<EntityText>>;
+    async fn save_text(&mut self, entity: &EntityText) -> anyhow::Result<EntityText>;
+    async fn save_texts(&mut self, entities: &Vec<EntityText>) -> anyhow::Result<Vec<EntityText>>;
     async fn get_text_by_id(&self, id: u32) -> anyhow::Result<EntityText>;
     async fn full_text_search(&self, text: &str) -> anyhow::Result<Vec<EntityText>>;
 }
@@ -109,16 +109,20 @@ impl Repository for InMemoryRepository {
         Ok(entity.clone())
     }
 
-    async fn save_text(&self, entity: &EntityText) -> anyhow::Result<EntityText> {
+    async fn save_text(&mut self, entity: &EntityText) -> anyhow::Result<EntityText> {
         let mut entity = entity.clone();
         entity.id = self.texts.len() as u32;
+        // append to self.texts
+        self.texts.push(entity.clone());
         Ok(entity)
     }
 
-    async fn save_texts(&self, entities: &Vec<EntityText>) -> anyhow::Result<Vec<EntityText>> {
+    async fn save_texts(&mut self, entities: &Vec<EntityText>) -> anyhow::Result<Vec<EntityText>> {
         let mut entities = entities.clone();
         for entity in entities.iter_mut() {
             entity.id = self.texts.len() as u32;
+            // append to self.texts
+            self.texts.push(entity.clone());
         }
         Ok(entities)
     }

@@ -8,25 +8,25 @@ use crate::{
 };
 
 pub struct Analysis {
-    ocr: Box<dyn CharacterRecognizer>,
-    repo: Box<dyn Repository>,
-    archiver: Box<dyn ImageArchiver>,
-}
-
-#[derive(Debug, Clone)]
-pub struct SearchResult {
-    pub image_id: u32,
-    pub texts: Vec<EntityText>,
-}
-
-impl SearchResult {
-    pub fn new(image_id: u32, texts: Vec<EntityText>) -> Self {
-        Self { image_id, texts }
-    }
+    ocr: Box<dyn CharacterRecognizer + Send + Sync>,
+    repo: Box<dyn Repository + Send + Sync>,
+    archiver: Box<dyn ImageArchiver + Send + Sync>,
 }
 
 impl Analysis {
-    async fn record_screenshot(&self, image: &image::RgbImage) -> Result<()> {
+    pub fn new(
+        ocr: Box<dyn CharacterRecognizer + Send + Sync>,
+        repo: Box<dyn Repository + Send + Sync>,
+        archiver: Box<dyn ImageArchiver + Send + Sync>,
+    ) -> Self {
+        Self {
+            ocr,
+            repo,
+            archiver,
+        }
+    }
+
+   pub async fn record_screenshot(&mut self, image: &image::RgbImage) -> Result<()> {
         let archive = self.archiver.archive(image).await?;
         let entity_image = EntityImage::new(0, archive.archive_type, archive.archive_detail);
         let entity_image = self.repo.save_image(&entity_image).await?;
@@ -41,11 +41,11 @@ impl Analysis {
                 it
             })
             .collect();
-        self.repo.save_texts(&entity_texts).await?;
+        self.repo.as_mut().save_texts(&entity_texts).await?;
         Ok(())
     }
 
-    async fn search(&self, text: &str) -> Result<Vec<SearchResult>> {
+    pub  async fn search(&self, text: &str) -> Result<Vec<SearchResult>> {
         let texts = self.repo.full_text_search(text).await?;
         let result: Vec<SearchResult> = texts
             .into_iter()
@@ -54,5 +54,17 @@ impl Analysis {
             .map(|(image_id, group)| SearchResult::new(image_id, group.collect()))
             .collect();
         Ok(result)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SearchResult {
+    pub image_id: u32,
+    pub texts: Vec<EntityText>,
+}
+
+impl SearchResult {
+    pub fn new(image_id: u32, texts: Vec<EntityText>) -> Self {
+        Self { image_id, texts }
     }
 }
