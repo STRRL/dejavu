@@ -18,7 +18,7 @@ impl ImageMarkupDecorator {
         for markup in markups {
             self.draw_box(&mut result, markup, image::Rgb([255, 0, 0]))?;
         }
-        return Ok(result);
+        Ok(result)
     }
 
     fn draw_box(

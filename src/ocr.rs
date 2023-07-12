@@ -2,6 +2,7 @@ use anyhow::Ok;
 use async_trait::async_trait;
 use image::DynamicImage;
 
+#[derive(Debug, Clone)]
 pub struct RecognizeItem {
     pub text: String,
     pub markup: MarkupBox,

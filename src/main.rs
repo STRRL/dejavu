@@ -2,12 +2,14 @@ use std::{fs, io::Cursor};
 
 use crate::screenshot::Capturer;
 use anyhow::Ok;
-use image::codecs::png;
 use ocr::CharacterRecognizer;
 mod analysis;
 mod markup;
 mod ocr;
+mod repository;
 mod screenshot;
+mod image_archive;
+
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -20,7 +22,11 @@ async fn main() -> anyhow::Result<()> {
 
     for (index, image) in captures.into_iter().enumerate() {
         let ocr_result = ocr.recognize(image.clone()).await?;
-        let markups: Vec<ocr::MarkupBox> = ocr_result.iter().map(|it| it.markup).collect();
+        let markups: Vec<ocr::MarkupBox> = ocr_result
+            .iter()
+            .filter(|it| it.level == 5)
+            .map(|it| it.markup)
+            .collect();
         println!("markups: {}", markups.len());
         let marked = decorator.markup_recognition(&image, &markups)?;
         let mut buffer: Vec<u8> = Vec::new();
