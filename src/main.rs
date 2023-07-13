@@ -25,14 +25,24 @@ async fn main() -> anyhow::Result<()> {
     let analysis_upload_task = analysis.clone();
     let analysis_search_task = analysis.clone();
 
+    let (shutdown_sender, _) = tokio::sync::broadcast::channel::<()>(1);
+
+    let mut shutdown_a = shutdown_sender.subscribe();
+    let mut shutdown_b = shutdown_sender.subscribe();
+
+    let shutdown_guard = tokio::spawn(async move {
+        signal::ctrl_c().await.unwrap();
+        shutdown_sender.send(()).unwrap();
+    });
+
     let capture_task = tokio::task::spawn(async move {
         let analysis = analysis_upload_task.clone();
         let capturer = screenshot::DefaultCapturer::new();
         let mut capture_interval = tokio::time::interval(Duration::from_secs(2));
         loop {
             tokio::select! {
-                _=signal::ctrl_c() => {
-                    println!("Ctrl-C received, exiting...");
+                _=shutdown_a.recv() => {
+                    println!("Ctrl-C received, capture task exiting...");
                     break;
                 },
                 _= capture_interval.tick()=>{
@@ -50,8 +60,8 @@ async fn main() -> anyhow::Result<()> {
         let mut search_interval = tokio::time::interval(Duration::from_secs(2));
         loop {
             tokio::select! {
-                _=signal::ctrl_c() => {
-                    println!("Ctrl-C received, exiting...");
+                _=shutdown_b.recv() => {
+                    println!("Ctrl-C received, search task exiting...");
                     break;
                 },
                 _= search_interval.tick()=>{
@@ -63,6 +73,9 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
+    shutdown_guard.await.unwrap();
     capture_task.await.unwrap();
+    search_task.await.unwrap();
     Ok(())
+
 }
