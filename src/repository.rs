@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use tokio::sync::Mutex;
 
 #[derive(Debug, Clone)]
 pub struct EntityImage {
@@ -71,22 +72,22 @@ impl TryFrom<&crate::ocr::RecognizeItem> for EntityText {
 pub trait Repository {
     async fn save_image(&self, entity: &EntityImage) -> anyhow::Result<EntityImage>;
     async fn get_image_by_id(&self, id: u32) -> anyhow::Result<EntityImage>;
-    async fn save_text(&mut self, entity: &EntityText) -> anyhow::Result<EntityText>;
-    async fn save_texts(&mut self, entities: &Vec<EntityText>) -> anyhow::Result<Vec<EntityText>>;
+    async fn save_text(&self, entity: &EntityText) -> anyhow::Result<EntityText>;
+    async fn save_texts(&self, entities: &Vec<EntityText>) -> anyhow::Result<Vec<EntityText>>;
     async fn get_text_by_id(&self, id: u32) -> anyhow::Result<EntityText>;
     async fn full_text_search(&self, text: &str) -> anyhow::Result<Vec<EntityText>>;
 }
 
 pub struct InMemoryRepository {
-    images: Vec<EntityImage>,
-    texts: Vec<EntityText>,
+    images: Mutex<Vec<EntityImage>>,
+    texts: Mutex<Vec<EntityText>>,
 }
 
 impl InMemoryRepository {
     pub fn new() -> Self {
         Self {
-            images: Vec::new(),
-            texts: Vec::new(),
+            images: Mutex::new(vec![]),
+            texts: Mutex::new(vec![]),
         }
     }
 }
@@ -96,42 +97,45 @@ impl InMemoryRepository {
 impl Repository for InMemoryRepository {
     async fn save_image(&self, entity: &EntityImage) -> anyhow::Result<EntityImage> {
         let mut entity = entity.clone();
-        entity.id = self.images.len() as u32;
+        let length = self.images.lock().await.len();
+        entity.id = length as u32;
         Ok(entity)
     }
 
     async fn get_image_by_id(&self, id: u32) -> anyhow::Result<EntityImage> {
-        let entity = self
-            .images
+        let guard = self.images.lock().await;
+        let entity = guard
             .iter()
             .find(|it| it.id == id)
             .ok_or(anyhow::anyhow!("not found"))?;
         Ok(entity.clone())
     }
 
-    async fn save_text(&mut self, entity: &EntityText) -> anyhow::Result<EntityText> {
+    async fn save_text(&self, entity: &EntityText) -> anyhow::Result<EntityText> {
         let mut entity = entity.clone();
-        entity.id = self.texts.len() as u32;
-        // append to self.texts
-        self.texts.push(entity.clone());
+        let mut guard = self.texts.lock().await;
+        entity.id = guard.len() as u32;
+        guard.push(entity.clone());
         Ok(entity)
     }
 
-    async fn save_texts(&mut self, entities: &Vec<EntityText>) -> anyhow::Result<Vec<EntityText>> {
+    async fn save_texts(&self, entities: &Vec<EntityText>) -> anyhow::Result<Vec<EntityText>> {
         let mut entities = entities.clone();
         for entity in entities.iter_mut() {
-            entity.id = self.texts.len() as u32;
-            // append to self.texts
-            self.texts.push(entity.clone());
+            let mut guard = self.texts.lock().await;
+            entity.id = guard.len() as u32;
+            guard.push(entity.clone());
         }
         Ok(entities)
     }
-
     async fn get_text_by_id(&self, id: u32) -> anyhow::Result<EntityText> {
         let entity = self
             .texts
+            .lock()
+            .await
             .iter()
             .find(|it| it.id == id)
+            .cloned()
             .ok_or(anyhow::anyhow!("not found"))?;
         Ok(entity.clone())
     }
@@ -140,6 +144,8 @@ impl Repository for InMemoryRepository {
     async fn full_text_search(&self, text: &str) -> anyhow::Result<Vec<EntityText>> {
         let entities = self
             .texts
+            .lock()
+            .await
             .iter()
             .filter(|it| it.text.contains(text))
             .cloned()
