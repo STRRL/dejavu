@@ -1,6 +1,5 @@
-use std::collections::HashMap;
 use std::sync::Arc;
-use std::{fs, io::Cursor, time::Duration};
+use std::time::Duration;
 
 use crate::screenshot::Capturer;
 use anyhow::Ok;
@@ -11,12 +10,12 @@ mod ocr;
 mod repository;
 mod screenshot;
 use tokio::signal;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::Mutex;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let tesseract_ocr = ocr::TesseractOCR::new();
-    let repo = repository::InMemoryRepository::new();
+    let repo = repository::in_memory::InMemoryRepository::new();
     let archiver = image_archive::InMemoryImageArchiver::new();
     let analysis =
         analysis::Analysis::new(Box::new(tesseract_ocr), Box::new(repo), Box::new(archiver));
@@ -77,5 +76,4 @@ async fn main() -> anyhow::Result<()> {
     capture_task.await.unwrap();
     search_task.await.unwrap();
     Ok(())
-
 }

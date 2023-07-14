@@ -2,6 +2,19 @@ use image::{GenericImage, RgbImage};
 
 use crate::ocr::MarkupBox;
 
+fn safe_put_pixel(
+    origin_image: &mut RgbImage,
+    x: u32,
+    y: u32,
+    color: image::Rgb<u8>,
+) -> anyhow::Result<()> {
+    if x < origin_image.width() && y < origin_image.height() {
+        origin_image.put_pixel(x, y, color);
+    }
+    Ok(())
+}
+
+
 pub struct ImageMarkupDecorator {}
 
 impl ImageMarkupDecorator {
@@ -41,16 +54,4 @@ impl ImageMarkupDecorator {
 
         Ok(())
     }
-}
-
-fn safe_put_pixel(
-    origin_image: &mut RgbImage,
-    x: u32,
-    y: u32,
-    color: image::Rgb<u8>,
-) -> anyhow::Result<()> {
-    if x < origin_image.width() && y < origin_image.height() {
-        origin_image.put_pixel(x, y, color);
-    }
-    Ok(())
 }
