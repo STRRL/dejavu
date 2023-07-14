@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 
 pub mod in_memory;
+pub mod sqlite;
+
 #[derive(Debug, Clone)]
 pub struct EntityImage {
     pub id: u32,

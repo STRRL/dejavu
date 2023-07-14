@@ -9,13 +9,15 @@ mod markup;
 mod ocr;
 mod repository;
 mod screenshot;
+use repository::sqlite::SqliteRepository;
 use tokio::signal;
 use tokio::sync::Mutex;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let conn = rusqlite::Connection::open("test.db")?;
+    let repo = SqliteRepository::new(conn);
     let tesseract_ocr = ocr::TesseractOCR::new();
-    let repo = repository::in_memory::InMemoryRepository::new();
     let archiver = image_archive::InMemoryImageArchiver::new();
     let analysis =
         analysis::Analysis::new(Box::new(tesseract_ocr), Box::new(repo), Box::new(archiver));
