@@ -1,12 +1,12 @@
-use std::sync::Arc;
+
 
 use super::{EntityImage, EntityText, Repository};
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::TryStreamExt;
-use itertools::Itertools;
+
 use sqlx::{Executor, Row};
-use tracing::trace;
+
 
 pub struct SqliteRepository {
     pool: sqlx::Pool<sqlx_sqlite::Sqlite>,
@@ -114,63 +114,48 @@ impl Repository for SqliteRepository {
     }
 
     async fn save_texts(&self, entities: &Vec<EntityText>) -> Result<Vec<EntityText>> {
-        // TODO: batch insert
-        let values = entities
-            .into_iter()
-            .map(|it| {
-                format!(
-                    "({}, '{}', {}, {}, {}, {})",
-                    it.image_id,
-                    it.text.replace("'", "''"),
-                    it.left,
-                    it.top,
-                    it.width,
-                    it.height
-                )
-                .to_string()
-            })
-            .join(", ");
-        let query = format!(
-            "INSERT INTO texts (image_id, text, left, top, width, height) VALUES {}",
-            values
-        );
-        let query = sqlx::query(query.as_str());
-        let execute_result = self.pool.execute(query).await?;
+        let mut builder =
+            sqlx::QueryBuilder::new("INSERT INTO texts (image_id, text, left, top, width, height)");
+        builder.push_values(entities, |mut b, it| {
+            b.push(it.image_id)
+                // TODO: sqlx just concat the SQL string without quoting, so we have to do it manually.
+                // TODO: and it's not safe at all.
+                .push(format!("'{}'", it.text.clone().replace("'", "''")))
+                .push(it.left)
+                .push(it.top)
+                .push(it.width)
+                .push(it.height);
+        });
+        let query = builder.build();
+        let execute_result = query.execute(&self.pool).await?;
         let rows_affected = execute_result.rows_affected();
         let last_insert_rowid = execute_result.last_insert_rowid();
-        let mut result = Vec::new();
-        let mut id_start = 1 + last_insert_rowid as u32 - rows_affected as u32;
 
-        // batch insert into text_fts
-        let values = entities
-            .into_iter()
+        let id_start = 1 + last_insert_rowid as u32 - rows_affected as u32;
+
+        let result = entities
+            .iter()
             .enumerate()
-            .map(|(index, it)| {
-                format!(
-                    "('{}', {})",
-                    it.text.replace("'", "''"),
-                    id_start + index as u32
-                )
-                .to_string()
+            .map(|(i, it)| EntityText {
+                id: id_start + i as u32,
+                image_id: it.image_id,
+                // TODO: sqlx just concat the SQL string without quoting, so we have to do it manually.
+                // TODO: and it's not safe at all.
+                text: (format!("'{}'", it.text.clone().replace("'", "''"))),
+                left: it.left,
+                top: it.top,
+                width: it.width,
+                height: it.height,
             })
-            .join(", ");
-        let query = format!("INSERT INTO text_fts (text, text_id) VALUES {}", values);
-        let query = sqlx::query(query.as_str());
-        self.pool.execute(query).await?;
+            .collect();
 
+        let mut builder = sqlx::QueryBuilder::new("INSERT INTO text_fts (text, text_id)");
 
-        for entity in entities {
-            result.push(EntityText {
-                id: id_start,
-                image_id: entity.image_id,
-                text: entity.text.clone(),
-                left: entity.left,
-                top: entity.top,
-                width: entity.width,
-                height: entity.height,
-            });
-            id_start += 1;
-        }
+        builder.push_values(&result, |mut b, it: &EntityText| {
+            b.push(it.text.clone()).push(it.id);
+        });
+        let query = builder.build();
+        query.execute(&self.pool).await?;
 
         Ok(result)
     }

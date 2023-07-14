@@ -70,6 +70,9 @@ async fn main() -> Result<()> {
         let capturer = screenshot::DefaultCapturer::new();
         let mut capture_interval = tokio::time::interval(Duration::from_secs(2));
         loop {
+            if cloned_token.is_cancelled(){
+                break;
+            }
             tokio::select! {
                 _ = cloned_token.cancelled() => {
                     info!("shutting down capture task");
