@@ -1,7 +1,5 @@
 use anyhow::Ok;
 use async_trait::async_trait;
-use image::DynamicImage;
-use tracing::trace;
 
 #[derive(Debug, Clone)]
 pub struct RecognizeItem {
@@ -49,7 +47,7 @@ impl MarkupBox {
 
 #[async_trait]
 pub trait CharacterRecognizer {
-    async fn recognize(&self, image: image::RgbImage) -> anyhow::Result<Vec<RecognizeItem>>;
+    async fn recognize(&self, image: &image::DynamicImage) -> anyhow::Result<Vec<RecognizeItem>>;
 }
 
 pub struct TesseractOCR {}
@@ -62,13 +60,10 @@ impl TesseractOCR {
 
 #[async_trait]
 impl CharacterRecognizer for TesseractOCR {
-    async fn recognize(&self, image: image::RgbImage) -> anyhow::Result<Vec<RecognizeItem>> {
-        trace!("OCR Start");
+    async fn recognize(&self, image: &image::DynamicImage) -> anyhow::Result<Vec<RecognizeItem>> {
         let default_args = rusty_tesseract::Args::default();
-        let di = DynamicImage::ImageRgb8(image);
-        let ri = rusty_tesseract::Image::from_dynamic_image(&di)?;
-        let output = rusty_tesseract::image_to_data(&ri, &default_args).unwrap();
-        trace!("OCR Complete");
+        let ri = rusty_tesseract::Image::from_dynamic_image(&image)?;
+        let output = rusty_tesseract::image_to_data(&ri, &default_args)?;
         let result: Vec<RecognizeItem> = output
             .data
             .iter()

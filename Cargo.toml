@@ -3,19 +3,13 @@ name = "dejavu"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[[bin]]
-name = "ocr"
-path = "src/poc/ocr/main.rs"
-
-[[bin]]
-name = "screenshot"
-path = "src/poc/screenshot/main.rs"
+[features]
+in-memory = []
 
 [dependencies]
+chrono = "0.4"
 screenshots = "0.6.0"
-rusty-tesseract = "1.1.5"
+rusty-tesseract = {version="*",git="https://github.com/STRRL/rusty-tesseract",rev = "84418ef"}
 image = "0.24.6"
 anyhow = "1.0.71"
 async-trait = "0.1.71"
@@ -32,3 +26,5 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 sqlx = { version = "0.7", features = ["runtime-tokio", "tls-native-tls"] }
 sqlx-sqlite = "0.7.0"
 futures = "0.3.28"
+dirs = "5.0"
+tokio-util = "0.7.8"

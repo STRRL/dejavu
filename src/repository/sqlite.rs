@@ -1,8 +1,12 @@
+use std::sync::Arc;
+
 use super::{EntityImage, EntityText, Repository};
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::TryStreamExt;
-use sqlx::Row;
+use itertools::Itertools;
+use sqlx::{Executor, Row};
+use tracing::trace;
 
 pub struct SqliteRepository {
     pool: sqlx::Pool<sqlx_sqlite::Sqlite>,
@@ -58,7 +62,7 @@ impl Repository for SqliteRepository {
                 .await?;
         let id = query_result.last_insert_rowid() as u32;
         Ok(EntityImage {
-            id: id,
+            id,
             archive_type: entity.archive_type.clone(),
             archive_info: entity.archive_info.clone(),
         })
@@ -71,9 +75,9 @@ impl Repository for SqliteRepository {
         let archive_type: String = row.get(0);
         let archive_info: String = row.get(1);
         Ok(EntityImage {
-            id: id,
-            archive_type: archive_type,
-            archive_info: archive_info,
+            id,
+            archive_type,
+            archive_info,
         })
     }
 
@@ -82,17 +86,24 @@ impl Repository for SqliteRepository {
             "INSERT INTO texts (image_id, text, left, top, width, height) VALUES (?, ?, ?, ?, ?, ?)",
         );
         let query_result = query
-            .bind(&entity.image_id)
+            .bind(entity.image_id)
             .bind(&entity.text)
-            .bind(&entity.left)
-            .bind(&entity.top)
-            .bind(&entity.width)
-            .bind(&entity.height)
+            .bind(entity.left)
+            .bind(entity.top)
+            .bind(entity.width)
+            .bind(entity.height)
             .execute(&self.pool)
             .await?;
         let id = query_result.last_insert_rowid() as u32;
+        // insert into table text_fts
+        let query = sqlx::query("INSERT INTO text_fts (text, text_id) VALUES (?, ?)");
+        query
+            .bind(&entity.text)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         Ok(EntityText {
-            id: id,
+            id,
             image_id: entity.image_id,
             text: entity.text.clone(),
             left: entity.left,
@@ -103,11 +114,64 @@ impl Repository for SqliteRepository {
     }
 
     async fn save_texts(&self, entities: &Vec<EntityText>) -> Result<Vec<EntityText>> {
-        let mut result = vec![];
+        // TODO: batch insert
+        let values = entities
+            .into_iter()
+            .map(|it| {
+                format!(
+                    "({}, '{}', {}, {}, {}, {})",
+                    it.image_id,
+                    it.text.replace("'", "''"),
+                    it.left,
+                    it.top,
+                    it.width,
+                    it.height
+                )
+                .to_string()
+            })
+            .join(", ");
+        let query = format!(
+            "INSERT INTO texts (image_id, text, left, top, width, height) VALUES {}",
+            values
+        );
+        let query = sqlx::query(query.as_str());
+        let execute_result = self.pool.execute(query).await?;
+        let rows_affected = execute_result.rows_affected();
+        let last_insert_rowid = execute_result.last_insert_rowid();
+        let mut result = Vec::new();
+        let mut id_start = 1 + last_insert_rowid as u32 - rows_affected as u32;
+
+        // batch insert into text_fts
+        let values = entities
+            .into_iter()
+            .enumerate()
+            .map(|(index, it)| {
+                format!(
+                    "('{}', {})",
+                    it.text.replace("'", "''"),
+                    id_start + index as u32
+                )
+                .to_string()
+            })
+            .join(", ");
+        let query = format!("INSERT INTO text_fts (text, text_id) VALUES {}", values);
+        let query = sqlx::query(query.as_str());
+        self.pool.execute(query).await?;
+
+
         for entity in entities {
-            let saved_entity = self.save_text(entity).await?;
-            result.push(saved_entity);
+            result.push(EntityText {
+                id: id_start,
+                image_id: entity.image_id,
+                text: entity.text.clone(),
+                left: entity.left,
+                top: entity.top,
+                width: entity.width,
+                height: entity.height,
+            });
+            id_start += 1;
         }
+
         Ok(result)
     }
 
@@ -123,13 +187,13 @@ impl Repository for SqliteRepository {
         let width: u32 = row.get(4);
         let height: u32 = row.get(5);
         Ok(EntityText {
-            id: id,
-            image_id: image_id,
-            text: text,
-            left: left,
-            top: top,
-            width: width,
-            height: height,
+            id,
+            image_id,
+            text,
+            left,
+            top,
+            width,
+            height,
         })
     }
 

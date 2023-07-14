@@ -6,7 +6,7 @@ use axum::{
     Extension, Json,
 };
 use serde::{Deserialize, Serialize};
-use tracing::trace;
+
 
 
 use std::sync::Arc;
@@ -20,7 +20,6 @@ pub async fn search(
     Extension(analysis): Extension<Arc<Analysis>>,
     Query(query): Query<SearchQuery>,
 ) -> Result<Json<Vec<SearchResult>>, HttpError> {
-    trace!("searching for {}", query.text);
     let result = analysis.clone().search(&query.text).await?;
     Ok(Json(result))
 }

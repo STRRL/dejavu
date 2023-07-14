@@ -6,16 +6,16 @@ use axum::extract::MatchedPath;
 use axum::http::Request;
 use axum::routing::get;
 use axum::{Extension, Router};
-use tracing::trace;
 use core::panic;
-
 use sqlx_sqlite::SqlitePoolOptions;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::signal;
-
-use tower_http::{trace::TraceLayer};
-use tracing::{info_span};
+use tokio::task::JoinHandle;
+use tokio_util::sync::CancellationToken;
+use tower_http::trace::TraceLayer;
+use tracing::info;
+use tracing::info_span;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 mod analysis;
 mod http;
@@ -27,10 +27,35 @@ mod screenshot;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let pool = SqlitePoolOptions::new().connect("test.db").await?;
+    let image_dir = format!(
+        "{}/{}/{}",
+        dirs::data_dir()
+            .expect("fetch data dir")
+            .to_str()
+            .expect("data dir path to string"),
+        "dejavu",
+        "images"
+    );
+    tokio::fs::create_dir_all(image_dir.clone()).await?;
+
+    let pool = SqlitePoolOptions::new()
+        .connect(
+            format!(
+                "{}/{}/{}",
+                dirs::data_dir()
+                    .expect("fetch data dir")
+                    .to_str()
+                    .expect("data dir path to string"),
+                "dejavu",
+                "dejavu.db?mode=rwc"
+            )
+            .as_str(),
+        )
+        .await?;
     let repo = repository::sqlite::SqliteRepository::new(pool);
+    repo.initialize().await?;
     let tesseract_ocr = ocr::TesseractOCR::new();
-    let archiver = image_archive::InMemoryImageArchiver::new();
+    let archiver = image_archive::fs::FileSystemImageArchiver::new(image_dir);
     let analysis =
         analysis::Analysis::new(Box::new(tesseract_ocr), Box::new(repo), Box::new(archiver));
 
@@ -38,33 +63,34 @@ async fn main() -> Result<()> {
     let analysis_upload_task = analysis.clone();
     let analysis_web = analysis.clone();
 
-    let (shutdown_sender, _) = tokio::sync::broadcast::channel::<()>(1);
+    let token = CancellationToken::new();
 
-    let mut shutdown_capture = shutdown_sender.subscribe();
-    let mut shutdown_http = shutdown_sender.subscribe();
-
-    let shutdown_guard = tokio::spawn(async move {
-        signal::ctrl_c().await.unwrap();
-        shutdown_sender.send(()).unwrap();
-    });
-
+    let cloned_token = token.clone();
     let capture_task = tokio::task::spawn(async move {
-        let analysis = analysis_upload_task.clone();
         let capturer = screenshot::DefaultCapturer::new();
         let mut capture_interval = tokio::time::interval(Duration::from_secs(2));
         loop {
             tokio::select! {
-                _ = shutdown_capture.recv() => {
-                    trace!("Ctrl-C received, capture task exiting...");
+                _ = cloned_token.cancelled() => {
+                    info!("shutting down capture task");
                     break;
                 },
                 _ = capture_interval.tick()=>{
                     // print current time
-                    trace!("capture task running at {:?}", std::time::SystemTime::now());
                     let captures = capturer.capture().await.unwrap();
-                    trace!("capture task captured {} screens", captures.len());
-                    for item in captures{
-                        analysis.record_screenshot(&item).await.unwrap();
+                        let mut tasks : Vec<JoinHandle<()>> = Vec::new();
+                        for item in captures {
+                        let analysis = analysis_upload_task.clone();
+                        let task = tokio::task::spawn(async move {
+                            let result = analysis.record_screenshot(&item).await;
+                            if let Err(e) = result {
+                                info!("failed to record screenshot: {}", e);
+                            }
+                        });
+                        tasks.push(task);
+                    }
+                    for task in tasks {
+                        task.await.unwrap();
                     }
                 },
             }
@@ -77,7 +103,7 @@ async fn main() -> Result<()> {
                 // axum logs rejections from built-in extractors with the `axum::rejection`
                 // target, at `TRACE` level. `axum::rejection=trace` enables showing those events
                 // "example_tracing_aka_logging=debug,tower_http=debug,axum::rejection=trace".into()
-                "trace".into()
+                "info".into()
             }),
         )
         .with(tracing_subscriber::fmt::layer())
@@ -103,14 +129,22 @@ async fn main() -> Result<()> {
                 )
             }),
         );
+
+    let cloned_token = token.clone();
     tokio::task::spawn(async move {
         axum::Server::bind(&"0.0.0.0:12333".parse().unwrap())
             .serve(router.into_make_service())
             .with_graceful_shutdown(async {
-                shutdown_http.recv().await.ok();
+                cloned_token.cancelled().await;
             })
             .await
             .unwrap();
+    });
+
+    let shutdown_guard = tokio::spawn(async move {
+        signal::ctrl_c().await.unwrap();
+        info!("Ctrl-C received, shutting down");
+        token.cancel();
     });
     shutdown_guard.await.unwrap();
     capture_task.await.unwrap();

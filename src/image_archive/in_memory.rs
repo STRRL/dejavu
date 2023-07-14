@@ -1,25 +1,16 @@
-use std::collections::HashMap;
 
-use async_trait::async_trait;
-use tokio::sync::Mutex;
-use uuid::Uuid;
 
-pub struct ImageArchive {
-    pub archive_type: String,
-    pub archive_detail: String,
-}
 
-#[async_trait]
-pub trait ImageArchiver {
-    async fn load(&self, image_archive: &ImageArchive) -> anyhow::Result<image::RgbImage>;
-    async fn archive(&self, image: &image::RgbImage) -> anyhow::Result<ImageArchive>;
-}
 
+
+
+#[cfg(feature = "in-memory")]
 pub struct InMemoryImageArchiver {
     // storage: HashMap<UUID, image::RgbImage>,
-    pub storage: Mutex<HashMap<String, image::RgbImage>>,
+    pub storage: Mutex<HashMap<String, image::DynamicImage>>,
 }
 
+#[cfg(feature = "in-memory")]
 impl InMemoryImageArchiver {
     pub fn new() -> Self {
         Self {
@@ -27,10 +18,10 @@ impl InMemoryImageArchiver {
         }
     }
 }
-
+#[cfg(feature = "in-memory")]
 #[async_trait]
 impl ImageArchiver for InMemoryImageArchiver {
-    async fn load(&self, image_archive: &ImageArchive) -> anyhow::Result<image::RgbImage> {
+    async fn load(&self, image_archive: &ImageArchive) -> anyhow::Result<image::DynamicImage> {
         let storage = self.storage.lock().await;
         let image = storage.get(&image_archive.archive_detail);
         match image {
@@ -39,7 +30,7 @@ impl ImageArchiver for InMemoryImageArchiver {
         }
     }
 
-    async fn archive(&self, image: &image::RgbImage) -> anyhow::Result<ImageArchive> {
+    async fn archive(&self, image: &image::DynamicImage) -> anyhow::Result<ImageArchive> {
         let mut storage = self.storage.lock().await;
         let uuid = Uuid::new_v4().to_string();
         storage.insert(uuid.clone(), image.clone());

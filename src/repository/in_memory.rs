@@ -1,13 +1,15 @@
-use async_trait::async_trait;
-use tokio::sync::Mutex;
 
-use super::{EntityImage, EntityText, Repository};
 
+
+
+
+#[cfg(feature = "in-memory")]
 pub struct InMemoryRepository {
     images: Mutex<Vec<EntityImage>>,
     texts: Mutex<Vec<EntityText>>,
 }
 
+#[cfg(feature = "in-memory")]
 impl InMemoryRepository {
     pub fn new() -> Self {
         Self {
@@ -18,6 +20,7 @@ impl InMemoryRepository {
 }
 
 // implement Repository trait for InMemoryRepository
+#[cfg(feature = "in-memory")]
 #[async_trait]
 impl Repository for InMemoryRepository {
     async fn save_image(&self, entity: &EntityImage) -> anyhow::Result<EntityImage> {
