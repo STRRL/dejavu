@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-
+use serde::{Deserialize, Serialize};
 pub mod in_memory;
 pub mod sqlite;
 
@@ -20,7 +20,7 @@ impl EntityImage {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EntityText {
     pub id: u32,
     pub image_id: u32,

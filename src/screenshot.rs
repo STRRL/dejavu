@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use async_trait::async_trait;
 use image::RgbImage;
 use screenshots::{Image, Screen};
@@ -5,7 +7,7 @@ use screenshots::{Image, Screen};
 #[async_trait]
 pub trait Capturer {
     /// Capture the contents of all the screens, returning a vector of images.
-   async fn capture(&self) -> anyhow::Result<Vec<RgbImage>>;
+    async fn capture(&self) -> anyhow::Result<Vec<RgbImage>>;
 }
 
 pub struct DefaultCapturer {}
@@ -20,14 +22,28 @@ impl DefaultCapturer {
 impl Capturer for DefaultCapturer {
     async fn capture(&self) -> anyhow::Result<Vec<RgbImage>> {
         let screens = Screen::all()?;
-        let mut result: Vec<RgbImage> = Vec::new();
+        let result: Vec<RgbImage> = Vec::new();
+
+        let result_mutex = Arc::new(Mutex::new(result));
+        // capture all screens concurrently
+        let mut tasks = Vec::new();
 
         for screen in screens {
-            let capture = screen.capture()?;
-            let image = screen_image_2_image_image(capture)?;
-            result.push(image);
+            let result_mutex = result_mutex.clone();
+            let t = tokio::task::spawn_blocking(move || {
+                let capture = screen.capture().unwrap();
+                let image = screen_image_2_image_image(capture).unwrap();
+                result_mutex.lock().unwrap().push(image);
+            });
+            tasks.push(t);
         }
 
+        // join all tasks
+        for task in tasks {
+            task.await?;
+        }
+    
+        let result = Arc::try_unwrap(result_mutex).unwrap().into_inner().unwrap();
         Ok(result)
     }
 }

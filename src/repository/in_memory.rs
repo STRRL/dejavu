@@ -62,7 +62,7 @@ impl Repository for InMemoryRepository {
             .find(|it| it.id == id)
             .cloned()
             .ok_or(anyhow::anyhow!("not found"))?;
-        Ok(entity.clone())
+        Ok(entity)
     }
 
     /// it's not a real full text search, just a simple filter for demo
