@@ -18,7 +18,8 @@ impl SqliteRepository {
             "CREATE TABLE IF NOT EXISTS images (
             id INTEGER PRIMARY KEY,
             archive_type TEXT NOT NULL,
-            archive_info TEXT NOT NULL
+            archive_info TEXT NOT NULL,
+            captured_at_epoch INTEGER NOT NULL
         )",
         )
         .execute(&self.pool)
@@ -50,17 +51,20 @@ impl SqliteRepository {
 #[async_trait]
 impl Repository for SqliteRepository {
     async fn save_image(&self, entity: &EntityImage) -> Result<EntityImage> {
-        let query_result =
-            sqlx::query("INSERT INTO images (archive_type, archive_info) VALUES (?, ?)")
-                .bind(&entity.archive_type)
-                .bind(&entity.archive_info)
-                .execute(&self.pool)
-                .await?;
+        let query_result = sqlx::query(
+            "INSERT INTO images (archive_type, archive_info, captured_at_epoch) VALUES (?, ?, ?)",
+        )
+        .bind(&entity.archive_type)
+        .bind(&entity.archive_info)
+        .bind(&(entity.captured_at_epoch as i64))
+        .execute(&self.pool)
+        .await?;
         let id = query_result.last_insert_rowid() as u32;
         Ok(EntityImage {
             id,
             archive_type: entity.archive_type.clone(),
             archive_info: entity.archive_info.clone(),
+            captured_at_epoch: entity.captured_at_epoch,
         })
     }
 
@@ -70,10 +74,12 @@ impl Repository for SqliteRepository {
         let row = query.fetch_one(&self.pool).await?;
         let archive_type: String = row.get(0);
         let archive_info: String = row.get(1);
+        let captured_at_epoch: i64 = row.get(2);
         Ok(EntityImage {
             id,
             archive_type,
             archive_info,
+            captured_at_epoch: captured_at_epoch.try_into()?,
         })
     }
 

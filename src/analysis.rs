@@ -32,7 +32,7 @@ impl Analysis {
 
     pub async fn record_screenshot(&self, screenshot: &Screenshot) -> Result<()> {
         let archive = self.archiver.archive(screenshot).await?;
-        let entity_image = EntityImage::new(0, archive.archive_type, archive.archive_detail);
+        let entity_image = EntityImage::new(0, archive.archive_type, archive.archive_detail, screenshot.metadata.captured_at_epoch);
         let entity_image = self.repo.save_image(&entity_image).await?;
 
         let ocr_result: Vec<RecognizeItem> = self.ocr.recognize(&screenshot.image).await?;

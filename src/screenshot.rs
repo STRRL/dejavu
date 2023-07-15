@@ -21,6 +21,7 @@ impl DefaultCapturer {
 #[derive(Debug)]
 pub struct Metadata {
     pub screen_id: u32,
+    pub captured_at_epoch: u64,
 }
 
 #[derive(Debug)]
@@ -32,6 +33,7 @@ pub struct Screenshot {
 #[async_trait]
 impl Capturer for DefaultCapturer {
     async fn capture(&self) -> anyhow::Result<Vec<Screenshot>> {
+        let now_epoch = chrono::Utc::now().timestamp() as u64;
         let screens = Screen::all()?;
         let result: Vec<Screenshot> = Vec::new();
 
@@ -48,6 +50,7 @@ impl Capturer for DefaultCapturer {
                     image,
                     metadata: Metadata {
                         screen_id: screen.display_info.id,
+                        captured_at_epoch: now_epoch,
                     },
                 };
                 result_mutex.lock().unwrap().push(item);
@@ -59,12 +62,9 @@ impl Capturer for DefaultCapturer {
         for task in tasks {
             task.await?;
         }
-    
+
         // collect results
-        let result = Arc::try_unwrap(result_mutex)
-            .unwrap()
-            .into_inner()
-            .unwrap();
+        let result = Arc::try_unwrap(result_mutex).unwrap().into_inner().unwrap();
         Ok(result)
     }
 }

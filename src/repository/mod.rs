@@ -8,14 +8,21 @@ pub struct EntityImage {
     pub id: u32,
     pub archive_type: String,
     pub archive_info: String,
+    pub captured_at_epoch: u64,
 }
 
 impl EntityImage {
-    pub fn new(id: u32, archive_type: String, archive_info: String) -> Self {
+    pub fn new(
+        id: u32,
+        archive_type: String,
+        archive_info: String,
+        captured_at_epoch: u64,
+    ) -> Self {
         Self {
             id,
             archive_type,
             archive_info,
+            captured_at_epoch,
         }
     }
 }
