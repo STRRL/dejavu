@@ -62,7 +62,7 @@ impl TesseractOCR {
 impl CharacterRecognizer for TesseractOCR {
     async fn recognize(&self, image: &image::DynamicImage) -> anyhow::Result<Vec<RecognizeItem>> {
         let default_args = rusty_tesseract::Args::default();
-        let ri = rusty_tesseract::Image::from_dynamic_image(&image)?;
+        let ri = rusty_tesseract::Image::from_dynamic_image(image)?;
         let output = rusty_tesseract::image_to_data(&ri, &default_args)?;
         let result: Vec<RecognizeItem> = output
             .data

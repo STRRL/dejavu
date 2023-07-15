@@ -1,7 +1,5 @@
-
-
-
-
+#[cfg(feature = "in-memory")]
+use {async_trait::async_trait, tokio::sync::Mutex, super::{EntityImage, EntityText, Repository}};
 
 #[cfg(feature = "in-memory")]
 pub struct InMemoryRepository {
@@ -47,14 +45,16 @@ impl Repository for InMemoryRepository {
         Ok(entity)
     }
 
-    async fn save_texts(&self, entities: &Vec<EntityText>) -> anyhow::Result<Vec<EntityText>> {
-        let mut entities = entities.clone();
-        for entity in entities.iter_mut() {
+    async fn save_texts(&self, entities: &[EntityText]) -> anyhow::Result<Vec<EntityText>> {
+        let mut result = Vec::new();
+        for entity in entities.iter() {
             let mut guard = self.texts.lock().await;
+            let mut entity = entity.clone();
             entity.id = guard.len() as u32;
             guard.push(entity.clone());
+            result.push(entity);
         }
-        Ok(entities)
+        Ok(result)
     }
     async fn get_text_by_id(&self, id: u32) -> anyhow::Result<EntityText> {
         let entity = self

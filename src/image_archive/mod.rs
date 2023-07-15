@@ -10,6 +10,10 @@ pub struct ImageArchive {
     pub archive_detail: String,
 }
 
+impl ImageArchive {
+    pub fn new(archive_type: String, archive_detail: String) -> Self { Self { archive_type, archive_detail } }
+}
+
 #[async_trait]
 pub trait ImageArchiver {
     async fn load(&self, image_archive: &ImageArchive) -> anyhow::Result<image::DynamicImage>;

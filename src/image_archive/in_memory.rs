@@ -1,8 +1,12 @@
-
-
-
-
-
+#[cfg(feature = "in-memory")]
+use {
+    super::{ImageArchive, ImageArchiver},
+    crate::screenshot::Screenshot,
+    async_trait::async_trait,
+    std::collections::HashMap,
+    tokio::sync::Mutex,
+    uuid::Uuid,
+};
 
 #[cfg(feature = "in-memory")]
 pub struct InMemoryImageArchiver {
@@ -30,10 +34,10 @@ impl ImageArchiver for InMemoryImageArchiver {
         }
     }
 
-    async fn archive(&self, image: &image::DynamicImage) -> anyhow::Result<ImageArchive> {
+    async fn archive(&self, screenshot: &Screenshot) -> anyhow::Result<ImageArchive> {
         let mut storage = self.storage.lock().await;
         let uuid = Uuid::new_v4().to_string();
-        storage.insert(uuid.clone(), image.clone());
+        storage.insert(uuid.clone(), screenshot.image.clone());
         Ok(ImageArchive {
             archive_type: "in_memory".to_string(),
             archive_detail: uuid,

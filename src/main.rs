@@ -7,6 +7,7 @@ use axum::http::Request;
 use axum::routing::get;
 use axum::{Extension, Router};
 use core::panic;
+use markup::ImageMarkupDecorator;
 use sqlx_sqlite::SqlitePoolOptions;
 use std::sync::Arc;
 use std::time::Duration;
@@ -54,51 +55,54 @@ async fn main() -> Result<()> {
         .await?;
     let repo = repository::sqlite::SqliteRepository::new(pool);
     repo.initialize().await?;
-    let tesseract_ocr = ocr::TesseractOCR::new();
-    let archiver = image_archive::fs::FileSystemImageArchiver::new(image_dir);
-    let analysis =
-        analysis::Analysis::new(Box::new(tesseract_ocr), Box::new(repo), Box::new(archiver));
+    let repo_arc = Arc::new(repo);
+    let ocr_arc = Arc::new(ocr::TesseractOCR::new());
+    let archiver_arc = Arc::new(image_archive::fs::FileSystemImageArchiver::new(image_dir));
 
-    let analysis: Arc<analysis::Analysis> = Arc::new(analysis);
-    let analysis_upload_task = analysis.clone();
-    let analysis_web = analysis.clone();
-
+    let analysis_arc: Arc<analysis::Analysis> = {
+        let repo_arc = repo_arc.clone();
+        let archiver_arc = archiver_arc.clone();
+        Arc::new(analysis::Analysis::new(ocr_arc, repo_arc, archiver_arc))
+    };
     let token = CancellationToken::new();
-
     let cloned_token = token.clone();
-    let capture_task = tokio::task::spawn(async move {
-        let capturer = screenshot::DefaultCapturer::new();
-        let mut capture_interval = tokio::time::interval(Duration::from_secs(2));
-        loop {
-            if cloned_token.is_cancelled(){
-                break;
-            }
-            tokio::select! {
-                _ = cloned_token.cancelled() => {
-                    info!("shutting down capture task");
+
+    let capture_task = {
+        let analysis_arc = analysis_arc.clone();
+        tokio::task::spawn(async move {
+            let capturer = screenshot::DefaultCapturer::new();
+            let mut capture_interval = tokio::time::interval(Duration::from_secs(2));
+            loop {
+                if cloned_token.is_cancelled() {
                     break;
-                },
-                _ = capture_interval.tick()=>{
-                    // print current time
-                    let captures = capturer.capture().await.unwrap();
-                        let mut tasks : Vec<JoinHandle<()>> = Vec::new();
-                        for item in captures {
-                        let analysis = analysis_upload_task.clone();
-                        let task = tokio::task::spawn(async move {
-                            let result = analysis.record_screenshot(&item).await;
-                            if let Err(e) = result {
-                                info!("failed to record screenshot: {}", e);
-                            }
-                        });
-                        tasks.push(task);
-                    }
-                    for task in tasks {
-                        task.await.unwrap();
-                    }
-                },
+                }
+                tokio::select! {
+                    _ = cloned_token.cancelled() => {
+                        info!("shutting down capture task");
+                        break;
+                    },
+                    _ = capture_interval.tick()=>{
+                        // print current time
+                        let captures = capturer.capture().await.unwrap();
+                            let mut tasks : Vec<JoinHandle<()>> = Vec::new();
+                            for item in captures {
+                            let analysis = analysis_arc.clone();
+                            let task = tokio::task::spawn(async move {
+                                let result = analysis.record_screenshot(&item).await;
+                                if let Err(e) = result {
+                                    info!("failed to record screenshot: {}", e);
+                                }
+                            });
+                            tasks.push(task);
+                        }
+                        for task in tasks {
+                            task.await.unwrap();
+                        }
+                    },
+                }
             }
-        }
-    });
+        })
+    };
 
     tracing_subscriber::registry()
         .with(
@@ -111,10 +115,20 @@ async fn main() -> Result<()> {
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
+    let service_arc = {
+        let analysis_arc = analysis_arc.clone();
+        Arc::new(http::service::Service::new(
+            analysis_arc,
+            Arc::new(ImageMarkupDecorator::new()),
+            repo_arc.clone(),
+            archiver_arc.clone(),
+        ))
+    };
 
     let router = Router::new()
         .route("/search", get(http::search))
-        .layer(Extension(analysis_web))
+        .route("/image", get(http::fetch_image_with_markup))
+        .layer(Extension(service_arc.clone()))
         .layer(
             TraceLayer::new_for_http().make_span_with(|request: &Request<_>| {
                 // Log the matched route's path (with placeholders not filled in).

@@ -1,12 +1,8 @@
-
-
 use super::{EntityImage, EntityText, Repository};
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::TryStreamExt;
-
-use sqlx::{Executor, Row};
-
+use sqlx::Row;
 
 pub struct SqliteRepository {
     pool: sqlx::Pool<sqlx_sqlite::Sqlite>,
@@ -113,14 +109,14 @@ impl Repository for SqliteRepository {
         })
     }
 
-    async fn save_texts(&self, entities: &Vec<EntityText>) -> Result<Vec<EntityText>> {
+    async fn save_texts(&self, entities: &[EntityText]) -> Result<Vec<EntityText>> {
         let mut builder =
             sqlx::QueryBuilder::new("INSERT INTO texts (image_id, text, left, top, width, height)");
         builder.push_values(entities, |mut b, it| {
             b.push(it.image_id)
                 // TODO: sqlx just concat the SQL string without quoting, so we have to do it manually.
                 // TODO: and it's not safe at all.
-                .push(format!("'{}'", it.text.clone().replace("'", "''")))
+                .push(format!("'{}'", it.text.clone().replace('\'', "''")))
                 .push(it.left)
                 .push(it.top)
                 .push(it.width)
@@ -141,7 +137,7 @@ impl Repository for SqliteRepository {
                 image_id: it.image_id,
                 // TODO: sqlx just concat the SQL string without quoting, so we have to do it manually.
                 // TODO: and it's not safe at all.
-                text: (format!("'{}'", it.text.clone().replace("'", "''"))),
+                text: (format!("'{}'", it.text.clone().replace('\'', "''"))),
                 left: it.left,
                 top: it.top,
                 width: it.width,

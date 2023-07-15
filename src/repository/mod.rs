@@ -75,7 +75,7 @@ pub trait Repository {
     async fn save_image(&self, entity: &EntityImage) -> anyhow::Result<EntityImage>;
     async fn get_image_by_id(&self, id: u32) -> anyhow::Result<EntityImage>;
     async fn save_text(&self, entity: &EntityText) -> anyhow::Result<EntityText>;
-    async fn save_texts(&self, entities: &Vec<EntityText>) -> anyhow::Result<Vec<EntityText>>;
+    async fn save_texts(&self, entities: &[EntityText]) -> anyhow::Result<Vec<EntityText>>;
     async fn get_text_by_id(&self, id: u32) -> anyhow::Result<EntityText>;
     async fn full_text_search(&self, text: &str) -> anyhow::Result<Vec<EntityText>>;
 }

@@ -24,12 +24,9 @@ impl ImageArchiver for FileSystemImageArchiver {
     async fn archive(&self, screenshot: &Screenshot) -> anyhow::Result<ImageArchive> {
         // filename format YYYY-MM-DD-HH-MM-SS
         let filename = chrono::Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
-        let path = format!(
-            "{}/{}-{}.png",
-            self.storage_path,
-            filename.clone(),
-            screenshot.metadata.screen_id
-        );
+        let filename =
+            format!("{}-{}.png", filename.clone(), screenshot.metadata.screen_id).to_string();
+        let path = format!("{}/{}", self.storage_path, filename);
         // encode the image as a PNG
         let mut buffer = Cursor::new(Vec::new());
         screenshot

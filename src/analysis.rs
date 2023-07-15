@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -10,16 +12,16 @@ use crate::{
 };
 
 pub struct Analysis {
-    ocr: Box<dyn CharacterRecognizer + Send + Sync>,
-    repo: Box<dyn Repository + Send + Sync>,
-    archiver: Box<dyn ImageArchiver + Send + Sync>,
+    ocr: Arc<dyn CharacterRecognizer + Send + Sync>,
+    repo: Arc<dyn Repository + Send + Sync>,
+    archiver: Arc<dyn ImageArchiver + Send + Sync>,
 }
 
 impl Analysis {
     pub fn new(
-        ocr: Box<dyn CharacterRecognizer + Send + Sync>,
-        repo: Box<dyn Repository + Send + Sync>,
-        archiver: Box<dyn ImageArchiver + Send + Sync>,
+        ocr: Arc<dyn CharacterRecognizer + Send + Sync>,
+        repo: Arc<dyn Repository + Send + Sync>,
+        archiver: Arc<dyn ImageArchiver + Send + Sync>,
     ) -> Self {
         Self {
             ocr,
@@ -29,7 +31,7 @@ impl Analysis {
     }
 
     pub async fn record_screenshot(&self, screenshot: &Screenshot) -> Result<()> {
-        let archive = self.archiver.archive(&screenshot).await?;
+        let archive = self.archiver.archive(screenshot).await?;
         let entity_image = EntityImage::new(0, archive.archive_type, archive.archive_detail);
         let entity_image = self.repo.save_image(&entity_image).await?;
 
