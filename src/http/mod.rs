@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 pub mod error;
 pub mod service;
+pub mod frontend;
 #[derive(Deserialize, Serialize)]
 pub struct SearchQuery {
     text: String,

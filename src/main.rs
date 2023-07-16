@@ -131,6 +131,7 @@ async fn main() -> Result<()> {
 
     let router = Router::new()
         .nest("/api", api_router)
+        .fallback(http::frontend::static_handler)
         .layer(Extension(service_arc.clone()))
         .layer(
             TraceLayer::new_for_http().make_span_with(|request: &Request<_>| {
