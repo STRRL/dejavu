@@ -1,4 +1,4 @@
-use crate::screenshot::Capturer;
+
 
 use anyhow::Ok;
 use anyhow::Result;
@@ -6,13 +6,15 @@ use axum::extract::MatchedPath;
 use axum::http::Request;
 use axum::routing::get;
 use axum::{Extension, Router};
+use crate::screenshot::Capturer;
+use tokio::task::JoinHandle;
 use core::panic;
 use markup::ImageMarkupDecorator;
 use sqlx_sqlite::SqlitePoolOptions;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::signal;
-use tokio::task::JoinHandle;
+
 use tokio_util::sync::CancellationToken;
 use tower_http::trace::TraceLayer;
 use tracing::info;
@@ -82,7 +84,6 @@ async fn main() -> Result<()> {
                         break;
                     },
                     _ = capture_interval.tick()=>{
-                        // print current time
                         let captures = capturer.capture().await.unwrap();
                             let mut tasks : Vec<JoinHandle<()>> = Vec::new();
                             for item in captures {

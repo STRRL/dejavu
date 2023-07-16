@@ -31,3 +31,5 @@ dirs = "5.0"
 tokio-util = { version = "0.7.8", features = ["io"] }
 rust-embed = { version = "6.8.1", features = ["axum-ex"] }
 mime_guess = "2"
+imageproc = "0.23"
+colorsys = "0.6"

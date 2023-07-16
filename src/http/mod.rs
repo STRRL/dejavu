@@ -1,7 +1,7 @@
 use self::{error::HttpError, service::Service};
 use crate::analysis::SearchResult;
 use axum::{extract::Query, http::header, response::IntoResponse, Extension, Json};
-use image::ImageFormat;
+use image::{ImageOutputFormat};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 pub mod error;
@@ -42,7 +42,7 @@ pub async fn fetch_image_with_markup(
         .await?;
     use std::io::{BufWriter, Cursor};
     let mut buffer = BufWriter::new(Cursor::new(Vec::new()));
-    marked.write_to(&mut buffer, ImageFormat::Jpeg).unwrap();
+    marked.write_to(&mut buffer, ImageOutputFormat::Jpeg(90)).unwrap();
     let bytes: Vec<u8> = buffer.into_inner().unwrap().into_inner();
     Ok((
         axum::response::AppendHeaders([(header::CONTENT_TYPE, "image/jpeg")]),

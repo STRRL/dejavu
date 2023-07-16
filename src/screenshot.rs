@@ -8,7 +8,7 @@ use screenshots::{Image, Screen};
 #[async_trait]
 pub trait Capturer {
     /// Capture the contents of all the screens, returning a vector of images.
-    async fn capture(&self) -> anyhow::Result<Vec<Screenshot>>;
+     async fn capture(&self) -> anyhow::Result<Vec<Screenshot>>;
 }
 
 pub struct DefaultCapturer {}

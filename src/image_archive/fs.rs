@@ -31,7 +31,7 @@ impl ImageArchiver for FileSystemImageArchiver {
         let mut buffer = Cursor::new(Vec::new());
         screenshot
             .image
-            .write_to(&mut buffer, image::ImageOutputFormat::Jpeg(80))?;
+            .write_to(&mut buffer, image::ImageOutputFormat::Jpeg(90))?;
         let buffer = buffer.into_inner();
         tokio::fs::write(path, buffer).await?;
         Ok(ImageArchive {
