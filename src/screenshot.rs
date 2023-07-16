@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 
+use anyhow::anyhow;
 use async_trait::async_trait;
 use image::DynamicImage;
 use screenshots::{Image, Screen};
@@ -70,7 +71,13 @@ impl Capturer for DefaultCapturer {
 }
 
 fn screen_image_2_image_image(screen_image: Image) -> anyhow::Result<DynamicImage> {
-    let buffer = screen_image.to_png()?;
-    let image = image::load_from_memory(&buffer)?;
-    Ok(image)
+    let buffer = screen_image.rgba().to_owned();
+    let image: image::RgbaImage = image::RgbaImage::from_raw(
+        screen_image.width() as u32,
+        screen_image.height() as u32,
+        buffer,
+    )
+    .ok_or(anyhow!("load screen image to image::RgbaImage"))?;
+    let result = DynamicImage::ImageRgba8(image);
+    Ok(result)
 }

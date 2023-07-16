@@ -25,13 +25,13 @@ impl ImageArchiver for FileSystemImageArchiver {
         // filename format YYYY-MM-DD-HH-MM-SS
         let filename = chrono::Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
         let filename =
-            format!("{}-{}.png", filename.clone(), screenshot.metadata.screen_id).to_string();
+            format!("{}-{}.jpg", filename.clone(), screenshot.metadata.screen_id).to_string();
         let path = format!("{}/{}", self.storage_path, filename);
-        // encode the image as a PNG
+        // encode the image as JPG
         let mut buffer = Cursor::new(Vec::new());
         screenshot
             .image
-            .write_to(&mut buffer, image::ImageOutputFormat::Png)?;
+            .write_to(&mut buffer, image::ImageOutputFormat::Jpeg(80))?;
         let buffer = buffer.into_inner();
         tokio::fs::write(path, buffer).await?;
         Ok(ImageArchive {
