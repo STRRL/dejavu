@@ -70,7 +70,7 @@ impl Repository for SqliteRepository {
 
     async fn get_image_by_id(&self, id: u32) -> Result<EntityImage> {
         let query =
-            sqlx::query("SELECT archive_type, archive_info FROM images WHERE id = ?").bind(id);
+            sqlx::query("SELECT archive_type, archive_info, captured_at_epoch FROM images WHERE id = ?").bind(id);
         let row = query.fetch_one(&self.pool).await?;
         let archive_type: String = row.get(0);
         let archive_info: String = row.get(1);

@@ -125,9 +125,12 @@ async fn main() -> Result<()> {
         ))
     };
 
-    let router = Router::new()
+    let api_router = Router::new()
         .route("/search", get(http::search))
-        .route("/image", get(http::fetch_image_with_markup))
+        .route("/image", get(http::fetch_image_with_markup));
+
+    let router = Router::new()
+        .nest("/api", api_router)
         .layer(Extension(service_arc.clone()))
         .layer(
             TraceLayer::new_for_http().make_span_with(|request: &Request<_>| {

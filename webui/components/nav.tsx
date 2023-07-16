@@ -1,7 +1,12 @@
 "use client"
 import { IconButton, InputAdornment, InputBase, Paper, TextField } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation'
+
 export default function Nav() {
+    const [searchText, setSearchText] = useState('')
+    const router = useRouter()
     return (
         <nav>
             <div className='container m-auto'>
@@ -14,11 +19,19 @@ export default function Nav() {
                             <TextField
                                 className='w-96'
                                 placeholder="Search Keywords"
+                                onChange={(e) => setSearchText(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        router.push(`/search?text=${searchText}`)
+                                    }
+                                }}
                                 InputProps={{
                                     endAdornment: <InputAdornment position="end">
                                         <IconButton
                                             className='m-2'
-                                            onClick={() => { }}
+                                            onClick={() => {
+                                                router.push(`/search?text=${searchText}`)
+                                            }}
                                             edge="end"
                                         >
                                             <SearchIcon />
