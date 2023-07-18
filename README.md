@@ -6,6 +6,12 @@
 
 Dejavu is an open-source, cross-platform tool designed to help you record and search anything you've seen. With Dejavu, you can have a perfect memory by capturing and organizing your visual recordings efficiently. Whether you want to recall a decision from a meeting or locate that tweet you saw, Dejavu has got you covered.
 
+## Roadmap
+
+- Video Encoding for Enhanced Storage Efficiency
+- Better Full Text Search Experiences
+- Cross-Platform Electron Application
+
 ### Features
 
 - **Record and Store:** Dejavu allows you to effortlessly record and store visual recordings. Your data saved on your local machine, ensuring complete privacy and accessibility.
