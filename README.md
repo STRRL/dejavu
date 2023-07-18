@@ -1,6 +1,6 @@
 # Dejavu
 
-> The content in README.md is assistanted by ChatGPT.
+> The content in README.md is assisted by ChatGPT.
 
 ## Overview
 
