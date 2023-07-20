@@ -24,7 +24,7 @@ Dejavu is an open-source, cross-platform tool designed to help you record and se
 
 ## Getting Started
 
-To start using Dejavu, follow these steps:
+You need a display device to run Dejavu for now. [pnpm](https://pnpm.io/) is necessary to build the frontend and an installation of [tesseract](https://github.com/tesseract-ocr/tesseract) is needed to run Dejavu as well. To start using Dejavu, follow these steps:
 
 1. Clone the Repository: Begin by cloning the Dejavu repository to your local machine using the following command:
 
