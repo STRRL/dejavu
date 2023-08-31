@@ -1,6 +1,10 @@
 use anyhow::Ok;
 use async_trait::async_trait;
 
+/// Structured recognized data, basically refers from hOCR spec.
+/// https://kba.github.io/hocr-spec/1.2
+mod model;
+
 #[derive(Debug, Clone)]
 pub struct RecognizeItem {
     pub text: String,
@@ -61,8 +65,14 @@ impl TesseractOCR {
 #[async_trait]
 impl CharacterRecognizer for TesseractOCR {
     async fn recognize(&self, image: &image::DynamicImage) -> anyhow::Result<Vec<RecognizeItem>> {
-        let default_args = rusty_tesseract::Args::default();
+        let mut default_args = rusty_tesseract::Args::default();
+        default_args
+            .config_variables
+            .insert("tessedit_create_hocr".into(), "1".into());
         let ri = rusty_tesseract::Image::from_dynamic_image(image)?;
+        let output_string = rusty_tesseract::image_to_string(&ri, &default_args)?;
+        // print output_string
+        println!("{}", output_string);
         let output = rusty_tesseract::image_to_data(&ri, &default_args)?;
         let result: Vec<RecognizeItem> = output
             .data

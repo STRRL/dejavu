@@ -33,3 +33,4 @@ rust-embed = { version = "6.8.1", features = ["axum-ex"] }
 mime_guess = "2"
 imageproc = "0.23"
 colorsys = "0.6"
+xml = "0.8"
