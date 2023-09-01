@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     image_archive::{ImageArchiver},
     ocr::{CharacterRecognizer, RecognizeItem},
-    repository::{EntityImage, EntityText, Repository},
+    repository::{EntityImage, EntityWord, Repository},
     screenshot::Screenshot,
 };
 
@@ -36,16 +36,16 @@ impl Analysis {
         let entity_image = self.repo.save_image(&entity_image).await?;
 
         let ocr_result: Vec<RecognizeItem> = self.ocr.recognize(&screenshot.image).await?;
-        let entity_texts: Vec<EntityText> = ocr_result
+        let entity_texts: Vec<EntityWord> = ocr_result
             .iter()
             .filter(|it| it.level == 5)
-            .filter_map(|it: &RecognizeItem| -> Option<EntityText> { it.try_into().ok() })
+            .filter_map(|it: &RecognizeItem| -> Option<EntityWord> { it.try_into().ok() })
             .map(|mut it| {
                 it.image_id = entity_image.id;
                 it
             })
             .collect();
-        self.repo.save_texts(&entity_texts).await?;
+        self.repo.save_words(&entity_texts).await?;
         Ok(())
     }
 
@@ -64,11 +64,11 @@ impl Analysis {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchResult {
     pub image_id: u32,
-    pub texts: Vec<EntityText>,
+    pub texts: Vec<EntityWord>,
 }
 
 impl SearchResult {
-    pub fn new(image_id: u32, texts: Vec<EntityText>) -> Self {
+    pub fn new(image_id: u32, texts: Vec<EntityWord>) -> Self {
         Self { image_id, texts }
     }
 }

@@ -50,7 +50,7 @@ impl Service {
         let mut markups = Vec::new();
 
         for text_id in text_ids {
-            let entity_text = self.repo.get_text_by_id(*text_id).await?;
+            let entity_text = self.repo.get_word_by_id(*text_id).await?;
             let markup_box = MarkupBox::new(
                 entity_text.left,
                 entity_text.top,

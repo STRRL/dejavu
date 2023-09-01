@@ -1,6 +1,9 @@
 use anyhow::Ok;
 use async_trait::async_trait;
 
+use self::{hocr_parse::parse_hocr_xml, model::Paragraph};
+
+mod hocr_parse;
 /// Structured recognized data, basically refers from hOCR spec.
 /// https://kba.github.io/hocr-spec/1.2
 mod model;
@@ -51,7 +54,9 @@ impl MarkupBox {
 
 #[async_trait]
 pub trait CharacterRecognizer {
+    #[deprecated]
     async fn recognize(&self, image: &image::DynamicImage) -> anyhow::Result<Vec<RecognizeItem>>;
+    async fn recognize_hocr(&self, image: &image::DynamicImage) -> anyhow::Result<Vec<Paragraph>>;
 }
 
 pub struct TesseractOCR {}
@@ -66,13 +71,7 @@ impl TesseractOCR {
 impl CharacterRecognizer for TesseractOCR {
     async fn recognize(&self, image: &image::DynamicImage) -> anyhow::Result<Vec<RecognizeItem>> {
         let mut default_args = rusty_tesseract::Args::default();
-        default_args
-            .config_variables
-            .insert("tessedit_create_hocr".into(), "1".into());
         let ri = rusty_tesseract::Image::from_dynamic_image(image)?;
-        let output_string = rusty_tesseract::image_to_string(&ri, &default_args)?;
-        // print output_string
-        println!("{}", output_string);
         let output = rusty_tesseract::image_to_data(&ri, &default_args)?;
         let result: Vec<RecognizeItem> = output
             .data
@@ -83,6 +82,17 @@ impl CharacterRecognizer for TesseractOCR {
                 RecognizeItem::new(text, markup, x.level as u32)
             })
             .collect();
+        Ok(result)
+    }
+
+    async fn recognize_hocr(&self, image: &image::DynamicImage) -> anyhow::Result<Vec<Paragraph>> {
+        let mut default_args = rusty_tesseract::Args::default();
+        default_args
+            .config_variables
+            .insert("tessedit_create_hocr".into(), "1".into());
+        let ri = rusty_tesseract::Image::from_dynamic_image(image)?;
+        let output_hocr = rusty_tesseract::image_to_string(&ri, &default_args)?;
+        let result = parse_hocr_xml(&output_hocr);
         Ok(result)
     }
 }

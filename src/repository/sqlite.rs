@@ -1,4 +1,4 @@
-use super::{EntityImage, EntityText, Repository};
+use super::{EntityImage, EntityWord, Repository};
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::TryStreamExt;
@@ -26,10 +26,10 @@ impl SqliteRepository {
         .await?;
 
         sqlx::query(
-            "CREATE TABLE IF NOT EXISTS texts (
+            "CREATE TABLE IF NOT EXISTS word (
                 id INTEGER PRIMARY KEY,
                 image_id INTEGER NOT NULL,
-                text TEXT NOT NULL,
+                content TEXT NOT NULL,
                 left INTEGER NOT NULL,
                 top INTEGER NOT NULL,
                 width INTEGER NOT NULL,
@@ -69,8 +69,10 @@ impl Repository for SqliteRepository {
     }
 
     async fn get_image_by_id(&self, id: u32) -> Result<EntityImage> {
-        let query =
-            sqlx::query("SELECT archive_type, archive_info, captured_at_epoch FROM images WHERE id = ?").bind(id);
+        let query = sqlx::query(
+            "SELECT archive_type, archive_info, captured_at_epoch FROM images WHERE id = ?",
+        )
+        .bind(id);
         let row = query.fetch_one(&self.pool).await?;
         let archive_type: String = row.get(0);
         let archive_info: String = row.get(1);
@@ -83,13 +85,13 @@ impl Repository for SqliteRepository {
         })
     }
 
-    async fn save_text(&self, entity: &EntityText) -> Result<EntityText> {
+    async fn save_word(&self, entity: &EntityWord) -> Result<EntityWord> {
         let query = sqlx::query(
-            "INSERT INTO texts (image_id, text, left, top, width, height) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO word (image_id, content, left, top, width, height) VALUES (?, ?, ?, ?, ?, ?)",
         );
         let query_result = query
             .bind(entity.image_id)
-            .bind(&entity.text)
+            .bind(&entity.content)
             .bind(entity.left)
             .bind(entity.top)
             .bind(entity.width)
@@ -100,14 +102,14 @@ impl Repository for SqliteRepository {
         // insert into table text_fts
         let query = sqlx::query("INSERT INTO text_fts (text, text_id) VALUES (?, ?)");
         query
-            .bind(&entity.text)
+            .bind(&entity.content)
             .bind(id)
             .execute(&self.pool)
             .await?;
-        Ok(EntityText {
+        Ok(EntityWord {
             id,
             image_id: entity.image_id,
-            text: entity.text.clone(),
+            content: entity.content.clone(),
             left: entity.left,
             top: entity.top,
             width: entity.width,
@@ -115,14 +117,15 @@ impl Repository for SqliteRepository {
         })
     }
 
-    async fn save_texts(&self, entities: &[EntityText]) -> Result<Vec<EntityText>> {
-        let mut builder =
-            sqlx::QueryBuilder::new("INSERT INTO texts (image_id, text, left, top, width, height)");
-        builder.push_values(entities, |mut b, it| {
+    async fn save_words(&self, words: &[EntityWord]) -> Result<Vec<EntityWord>> {
+        let mut builder = sqlx::QueryBuilder::new(
+            "INSERT INTO word (image_id, content, left, top, width, height)",
+        );
+        builder.push_values(words, |mut b, it| {
             b.push(it.image_id)
                 // TODO: sqlx just concat the SQL string without quoting, so we have to do it manually.
                 // TODO: and it's not safe at all.
-                .push(format!("'{}'", it.text.clone().replace('\'', "''")))
+                .push(format!("'{}'", it.content.clone().replace('\'', "''")))
                 .push(it.left)
                 .push(it.top)
                 .push(it.width)
@@ -135,15 +138,15 @@ impl Repository for SqliteRepository {
 
         let id_start = 1 + last_insert_rowid as u32 - rows_affected as u32;
 
-        let result = entities
+        let result = words
             .iter()
             .enumerate()
-            .map(|(i, it)| EntityText {
+            .map(|(i, it)| EntityWord {
                 id: id_start + i as u32,
                 image_id: it.image_id,
                 // TODO: sqlx just concat the SQL string without quoting, so we have to do it manually.
                 // TODO: and it's not safe at all.
-                text: (format!("'{}'", it.text.clone().replace('\'', "''"))),
+                content: (format!("'{}'", it.content.clone().replace('\'', "''"))),
                 left: it.left,
                 top: it.top,
                 width: it.width,
@@ -153,8 +156,8 @@ impl Repository for SqliteRepository {
 
         let mut builder = sqlx::QueryBuilder::new("INSERT INTO text_fts (text, text_id)");
 
-        builder.push_values(&result, |mut b, it: &EntityText| {
-            b.push(it.text.clone()).push(it.id);
+        builder.push_values(&result, |mut b, it: &EntityWord| {
+            b.push(it.content.clone()).push(it.id);
         });
         let query = builder.build();
         query.execute(&self.pool).await?;
@@ -162,21 +165,22 @@ impl Repository for SqliteRepository {
         Ok(result)
     }
 
-    async fn get_text_by_id(&self, id: u32) -> Result<EntityText> {
-        let query =
-            sqlx::query("SELECT image_id, text, left, top, width, height FROM texts WHERE id = ?")
-                .bind(id);
+    async fn get_word_by_id(&self, id: u32) -> Result<EntityWord> {
+        let query = sqlx::query(
+            "SELECT image_id, content, left, top, width, height FROM word WHERE id = ?",
+        )
+        .bind(id);
         let row = query.fetch_one(&self.pool).await?;
         let image_id: u32 = row.get(0);
-        let text: String = row.get(1);
+        let content: String = row.get(1);
         let left: u32 = row.get(2);
         let top: u32 = row.get(3);
         let width: u32 = row.get(4);
         let height: u32 = row.get(5);
-        Ok(EntityText {
+        Ok(EntityWord {
             id,
             image_id,
-            text,
+            content: content,
             left,
             top,
             width,
@@ -184,13 +188,13 @@ impl Repository for SqliteRepository {
         })
     }
 
-    async fn full_text_search(&self, text: &str) -> Result<Vec<EntityText>> {
-        let query = sqlx::query("SELECT text_id FROM text_fts WHERE text_fts MATCH ?1").bind(text);
+    async fn full_text_search(&self, text: &str) -> Result<Vec<EntityWord>> {
+        let query = sqlx::query("SELECT text_id FROM text_fts WHERE text_fts MATCH ?").bind(text);
         let mut rows = query.fetch(&self.pool);
         let mut result = vec![];
         while let Some(row) = rows.try_next().await? {
             let text_id: u32 = row.get(0);
-            let entity = self.get_text_by_id(text_id).await?;
+            let entity = self.get_word_by_id(text_id).await?;
             result.push(entity);
         }
         Ok(result)
