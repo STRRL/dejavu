@@ -1,5 +1,5 @@
 #[cfg(feature = "in-memory")]
-use {async_trait::async_trait, tokio::sync::Mutex, super::{EntityImage, EntityText, Repository}};
+use {async_trait::async_trait, tokio::sync::Mutex, super::{EntityImage, EntityWord, Repository}};
 
 #[cfg(feature = "in-memory")]
 pub struct InMemoryRepository {

@@ -10,7 +10,7 @@ in-memory = []
 [dependencies]
 chrono = "0.4"
 screenshots = "0.6.0"
-rusty-tesseract = { version = "*", git = "https://github.com/STRRL/rusty-tesseract", rev = "84418ef" }
+rusty-tesseract = { version = "1.1.7" }
 image = "0.24.6"
 anyhow = { version = "1.0", features = ["backtrace"] }
 async-trait = "0.1.71"
@@ -33,3 +33,4 @@ rust-embed = { version = "6.8.1", features = ["axum-ex"] }
 mime_guess = "2"
 imageproc = "0.23"
 colorsys = "0.6"
+xml = "0.8"

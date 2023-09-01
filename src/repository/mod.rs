@@ -28,17 +28,17 @@ impl EntityImage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EntityText {
+pub struct EntityWord {
     pub id: u32,
     pub image_id: u32,
-    pub text: String,
+    pub content: String,
     pub left: u32,
     pub top: u32,
     pub width: u32,
     pub height: u32,
 }
 
-impl EntityText {
+impl EntityWord {
     pub fn new(
         id: u32,
         image_id: u32,
@@ -51,7 +51,7 @@ impl EntityText {
         Self {
             id,
             image_id,
-            text,
+            content: text,
             left,
             top,
             width,
@@ -60,7 +60,7 @@ impl EntityText {
     }
 }
 
-impl TryFrom<&crate::ocr::RecognizeItem> for EntityText {
+impl TryFrom<&crate::ocr::RecognizeItem> for EntityWord {
     type Error = anyhow::Error;
 
     fn try_from(value: &crate::ocr::RecognizeItem) -> anyhow::Result<Self> {
@@ -81,8 +81,8 @@ impl TryFrom<&crate::ocr::RecognizeItem> for EntityText {
 pub trait Repository {
     async fn save_image(&self, entity: &EntityImage) -> anyhow::Result<EntityImage>;
     async fn get_image_by_id(&self, id: u32) -> anyhow::Result<EntityImage>;
-    async fn save_text(&self, entity: &EntityText) -> anyhow::Result<EntityText>;
-    async fn save_texts(&self, entities: &[EntityText]) -> anyhow::Result<Vec<EntityText>>;
-    async fn get_text_by_id(&self, id: u32) -> anyhow::Result<EntityText>;
-    async fn full_text_search(&self, text: &str) -> anyhow::Result<Vec<EntityText>>;
+    async fn save_word(&self, entity: &EntityWord) -> anyhow::Result<EntityWord>;
+    async fn save_words(&self, entities: &[EntityWord]) -> anyhow::Result<Vec<EntityWord>>;
+    async fn get_word_by_id(&self, id: u32) -> anyhow::Result<EntityWord>;
+    async fn full_text_search(&self, text: &str) -> anyhow::Result<Vec<EntityWord>>;
 }
