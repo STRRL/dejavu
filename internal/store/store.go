@@ -393,8 +393,10 @@ func (s *Store) recentCaptureIDs(ctx context.Context, limit int) ([]int64, error
 		`SELECT captures.id
 		FROM captures
 		JOIN moments ON moments.id = captures.moment_id
+		WHERE moments.bundle_id != ?
 		ORDER BY moments.captured_at DESC, captures.id DESC
 		LIMIT ?`,
+		model.AppBundleID,
 		limit,
 	)
 	if err != nil {
@@ -421,6 +423,7 @@ func (s *Store) ftsCaptureIDs(ctx context.Context, query string, limit int) ([]i
 			JOIN captures ON captures.id = capture_search.capture_id
 			JOIN moments ON moments.id = captures.moment_id
 			WHERE %s MATCH ?
+				AND moments.bundle_id != ?
 			ORDER BY bm25(%s, 5.0, 3.0, 1.0), moments.captured_at DESC
 			LIMIT ?`,
 			table,
@@ -428,7 +431,7 @@ func (s *Store) ftsCaptureIDs(ctx context.Context, query string, limit int) ([]i
 			table,
 			table,
 		)
-		rows, err := s.db.QueryContext(ctx, statement, plan, limit)
+		rows, err := s.db.QueryContext(ctx, statement, plan, model.AppBundleID, limit)
 		if err != nil {
 			return nil, fmt.Errorf("search captures: %w", err)
 		}
@@ -474,7 +477,12 @@ func (s *Store) likeCaptureIDs(ctx context.Context, query string, limit int) ([]
 		pattern := "%" + escapeLike(term) + "%"
 		params = append(params, pattern, pattern, pattern)
 	}
-	params = append(params, limit)
+	params = append(
+		params,
+		model.AppBundleID,
+		"%"+escapeLike(query)+"%",
+		limit,
+	)
 
 	rows, err := s.db.QueryContext(
 		ctx,
@@ -483,11 +491,12 @@ func (s *Store) likeCaptureIDs(ctx context.Context, query string, limit int) ([]
 		JOIN captures ON captures.id = capture_search.capture_id
 		JOIN moments ON moments.id = captures.moment_id
 		WHERE `+strings.Join(conditions, " AND ")+`
+			AND moments.bundle_id != ?
 		ORDER BY
 			CASE WHEN capture_search.window_title LIKE ? THEN 0 ELSE 1 END,
 			moments.captured_at DESC
 		LIMIT ?`,
-		append(params[:len(params)-1], "%"+escapeLike(query)+"%", limit)...,
+		params...,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("search short query: %w", err)

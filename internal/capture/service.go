@@ -159,6 +159,9 @@ func (s *Service) captureOnce(ctx context.Context) {
 			AccessibilityGranted: macbridge.AccessibilityPermission() == model.PermissionGranted,
 		}
 	}
+	if window.BundleID == model.AppBundleID {
+		return
+	}
 
 	now := time.Now()
 	input := model.MomentInput{

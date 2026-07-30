@@ -1,5 +1,7 @@
 package model
 
+const AppBundleID = "dev.strrl.dejavu"
+
 type PermissionState string
 
 const (
